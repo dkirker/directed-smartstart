@@ -1,0 +1,10 @@
+{
+  "id": "com.openmobl.app.directed-smartstart",
+  "version": "0.0.1",
+  "vendor": "OpenMobl Systems",
+  "type": "web",
+  "main": "index.html",
+  "title": "SmartStart",
+  "icon": "icon.png",
+  "uiRevision": "2"
+}
