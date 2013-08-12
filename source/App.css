@@ -5,3 +5,18 @@
 .nice-padding {
 	padding: 15px;
 }
+
+.header {
+    text-align: center;
+}
+
+.login-items {
+
+}
+
+.login-items .column {
+    margin-top: .5em;
+    margin-bottom: .5em;
+    
+    text-align: center;
+}

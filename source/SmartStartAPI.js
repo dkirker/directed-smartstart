@@ -8,7 +8,7 @@ enyo.kind({
     events: {
         onLoggedIn: "",
         onLogInError: "",
-        onVehiclesReslt: "",
+        onVehiclesResult: "",
         onVehiclesError: "",
         onCommandResult: "",
         onCommandError: ""
@@ -44,6 +44,7 @@ enyo.kind({
         });
 
         request.response(enyo.bind(this, "processLogin"));
+		request.error(enyo.bind(this, "processLoginError"));
         request.go();
     },
     
@@ -59,7 +60,7 @@ enyo.kind({
             this.doLogInError({"errorCode": , "errorText": "Invalid response"});
             return;
         }*/
-        if (!inResponse || !inResponse.Results) {
+        if (!inResponse || !inResponse.Return.Results) {
             this.sessionId = "";
             this.doLogInError({"errorCode": "", "errorText": "Invalid response"});
             return;
@@ -75,7 +76,7 @@ enyo.kind({
             this.sessionId = exp.exec(setCookie);
         }*/
         
-        var sessionID = inResponse.Results.SessionID;
+        var sessionID = inResponse.Return.Results.SessionID;
         if (sessionID) {
             this.sessionId = sessionID;
             this.doLoggedIn({"sessionId": this.sessionId});
@@ -85,6 +86,10 @@ enyo.kind({
             this.doCommandError({"errorCode": "", "errorText": "No session ID"});
         }
     },
+	processLoginError: function(inSender, inResponse) {
+		this.sessionId = "";
+		this.doLogInError({"errorCode": "", "errorText": "Invalid response"});
+	},
     
     getVehicles: function() {
         if (!this.sessionId || this.sessionId == "") {
@@ -100,16 +105,17 @@ enyo.kind({
         });
 
         request.response(enyo.bind(this, "processVehicles"));
+        request.error(enyo.bind(this, "processVehiclesError"));
         request.go();
     },
     
     processVehicles: function(inSender, inResponse) {
-        if (!inResponse || !inResponse.Results || !inResponse.Results.Devices) {
+        if (!inResponse || !inResponse.Return || !inResponse.Return.Results || !inResponse.Return.Results.Devices) {
             this.doVehiclesError({"errorCode": "", "errorText": "Invalid response"});
             return;
         }
         
-        this.devices = inResponse.Results.Devices;
+        this.devices = inResponse.Return.Results.Devices;
         
         // Return results:
         // deviceId (DeviceId)
@@ -134,6 +140,7 @@ enyo.kind({
             ];
         var vehicles = [];
         for (var i = 0; i < this.devices.length; i++) {
+			vehicles[i] = {};
             for (var j = 0; j < map.length; j++) {
                 vehicles[i][map[j].to] = this.devices[i][map[j].from];
             }
@@ -144,8 +151,13 @@ enyo.kind({
             vehicles[i].commands = this.devices[i].AvailActions;
         }
         
-        this.doVehiclesResult(vehicles, inSender, inResponse);
+		var event = {};
+		event.vehicles = vehicles;
+        this.doVehiclesResult(event, inSender, inResponse);
     },
+	processVehiclesError: function(inSender, inResponse) {
+		this.doVehiclesError({"errorCode": "", "errorText": "Invalid response"});
+	},
     
     sendCommand: function(vehicleId, command) {
         if (!this.sessionId || this.sessionId == "") {
@@ -165,6 +177,7 @@ enyo.kind({
         });
 
         request.response(enyo.bind(this, "processCommandResult"));
+        request.error(enyo.bind(this, "processCommandError"));
         request.go();
     },
     
@@ -175,5 +188,8 @@ enyo.kind({
         }
         this.doCommandResult(inSender, inResponse);
     },
-    
+    processCommandError: function(inSender, inResponse) {
+		this.doCommandError({"errorCode": "", "errorText": "Invalid response"});
+	}
+	
 });
