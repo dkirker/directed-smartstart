@@ -20,6 +20,10 @@ enyo.kind({
     sessionId: "",
     
     devices: [],
+	
+	commandTemp: "",
+	vehicleTemp: "",
+	commandTriesLeft: 3,
     
     /**
      * Force reset of session ID and log in.
@@ -29,6 +33,13 @@ enyo.kind({
         this.password = password;
         
         this.getSessionId();
+    },
+	/**
+	 * Set username and password, but don't force login, yet.
+	 */
+	setLogin: function(username, password) {
+        this.username = username;
+        this.password = password;
     },
     
     /**
@@ -80,10 +91,15 @@ enyo.kind({
         if (sessionID) {
             this.sessionId = sessionID;
             this.doLoggedIn({"sessionId": this.sessionId});
+			
+			if (this.commandTemp != "") {
+				this.log("Retrying command ", this.commandTemp, " for vehicle ", this.vehicleTemp);
+				this.sendCommand(this.vehicleTemp, this.commandTemp);
+			}
         } else {
             // We need to error out here!
             this.sessionId = "";
-            this.doCommandError({"errorCode": "", "errorText": "No session ID"});
+            this.doLogInError({"errorCode": "", "errorText": "No session ID"});
         }
     },
 	processLoginError: function(inSender, inResponse) {
@@ -169,12 +185,18 @@ enyo.kind({
             return;
         }
         
+		this.commandTemp = command;
+		this.vehicleTemp = vehicleId;
+		this.commandTriesLeft--;
+		
         var commandUrl = "https://" + this.host + "/device/sendcommand/" + vehicleId + "/" + command + "?sessid=" + this.sessionId;
         var request = new enyo.Ajax({
             url: commandUrl,
             handleAs: "json",
             contentType: "text/plain"
         });
+		
+		this.log(commandUrl);
 
         request.response(enyo.bind(this, "processCommandResult"));
         request.error(enyo.bind(this, "processCommandError"));
@@ -182,14 +204,32 @@ enyo.kind({
     },
     
     processCommandResult: function(inSender, inResponse) {
-        if (!inResponse) {
+		this.commandTemp = "";
+		this.vehicleTemp = "";
+		
+		if (!inResponse || !inResponse.Return || !inResponse.Return.Results || !inResponse.Return.Results.Device) {
             this.doCommandError({"errorCode": "", "errorText": "Invalid response"});
+			this.commandTriesLeft = 3;
             return;
         }
-        this.doCommandResult(inSender, inResponse);
+		var event = {};
+		event.data = inResponse;
+        this.doCommandResult(event, inSender, inResponse);
     },
     processCommandError: function(inSender, inResponse) {
-		this.doCommandError({"errorCode": "", "errorText": "Invalid response"});
+		this.log("inResponse: ", enyo.json.stringify(inResponse), " inSender: ", enyo.json.stringify(inSender));
+		
+		if (this.commandTriesLeft <= 0) {
+			this.commandTriesLeft = 3;
+			this.commandTemp = "";
+			this.vehicleTemp = "";
+			this.doCommandError({"errorCode": "", "errorText": "Invalid response"});
+		} else {
+			if (400 <= inSender.xhrResponse.status < 500) {
+				this.log("Bad session id, trying again.");
+				this.getSessionId();
+			}
+		}
 	}
 	
 });
